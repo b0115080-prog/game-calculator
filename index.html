@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遊戲金幣計算系統 (網頁版 v2)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f0f2f5; padding-top: 30px; font-family: "Microsoft JhengHei", sans-serif; }
+        .card { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); }
+        .result-box { 
+            background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 100%); 
+            border-left: 5px solid #0dcaf0; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 25px; 
+            display: none; /* 預設隱藏 */
+        }
+        .highlight-coin { color: #d63384; font-weight: 800; font-size: 1.5rem; }
+        .rank-badge { font-weight: bold; padding: 5px 10px; border-radius: 6px; color: white; background-color: #6c757d;}
+        .rank-A { background-color: #dc3545; } /* 紅色 */
+        .rank-B { background-color: #fd7e14; } /* 橘色 */
+        .rank-C { background-color: #198754; } /* 綠色 */
+        .rank-D { background-color: #6c757d; } /* 灰色 */
+    </style>
+</head>
+<body>
+
+<div class="container" style="max-width: 900px;">
+    <h2 class="text-center mb-4 fw-bold text-dark">🎮 遊戲金幣 (B) 計算系統</h2>
+
+    <div id="resultArea" class="result-box shadow-sm">
+        <h4 id="resTitle" class="mb-3 fw-bold">📊 計算結果</h4>
+        <p id="resDesc" class="mb-2">描述...</p>
+        <div class="p-3 bg-white rounded border">
+            <p class="mb-1 text-muted">計算公式：<code id="resFormula" class="text-primary">...</code></p>
+            <div class="row align-items-center mt-2">
+                <div class="col-md-6">
+                    獲得金幣 (B): <span id="resCoins" class="highlight-coin">0</span>
+                </div>
+                <div class="col-md-6">
+                    約合台幣 (NTD): <span id="resNTD" class="fw-bold text-success fs-5">$0</span>
+                </div>
+            </div>
+            <div id="resExtra" class="alert alert-warning mt-3 mb-0 py-2 small" style="display:none;"></div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header bg-dark text-white fw-bold">
+                    1. 您的角色狀態 (P)
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">目前等級 (手環數)</label>
+                        <input type="number" id="p_level" class="form-control form-control-lg" value="1" min="1" max="31" oninput="updateRankDisplay()">
+                        <div class="mt-3">
+                            目前層級：<span id="rankBadge" class="rank-badge rank-D">D級</span>
+                            <span id="rankRatio" class="text-muted small ms-1"></span>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="small text-muted">
+                        <strong>獎金比例對照表：</strong>
+                        <ul class="ps-3 mb-0 mt-2">
+                            <li><span class="text-danger fw-bold">A級 (31+)</span>: M1 15%, M3 11%</li>
+                            <li><span class="text-warning fw-bold" style="color:#fd7e14 !important">B級 (21-30)</span>: M1 14%, M3 10%</li>
+                            <li><span class="text-success fw-bold">C級 (11-20)</span>: M1 12%, M3 9%</li>
+                            <li><span class="text-secondary fw-bold">D級 (1-10)</span>: M1 10%, M3 8%</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white fw-bold d-flex justify-content-between">
+                    <span>模式 A：直系邀請 (第一代)</span>
+                    <small>公式：73.8 * T * P%</small>
+                </div>
+                <div class="card-body">
+                    <div class="input-group">
+                        <span class="input-group-text">受邀人 (T) 等級</span>
+                        <input type="number" id="m1_t_level" class="form-control" placeholder="1-31" min="1" max="31">
+                        <button class="btn btn-primary px-4" onclick="calcMethod1()">計算</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-success">
+                <div class="card-header bg-success text-white fw-bold d-flex justify-content-between">
+                    <span>模式 B：代數獎勵 (第二~五代)</span>
+                    <small>公式：73.8 * Tn * 3%</small>
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2">適用於您的下線 (T) 再去邀請新人 (T2~T5)。</p>
+                    <div class="input-group">
+                        <span class="input-group-text">新人 (Tn) 等級</span>
+                        <input type="number" id="m2_tn_level" class="form-control" placeholder="1-31" min="1" max="31">
+                        <button class="btn btn-success px-4" onclick="calcMethod2()">計算</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between">
+                    <span>模式 C：旁系對碰</span>
+                    <small>取小邊計算 (t)</small>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-5">
+                            <label class="form-label small">左區總分</label>
+                            <input type="number" id="m3_left" class="form-control" placeholder="如: 150">
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label small">右區總分</label>
+                            <input type="number" id="m3_right" class="form-control" placeholder="如: 80">
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-warning w-100" onclick="calcMethod3()">計算</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const RATE_NTD = 31; // 匯率
+
+    // 初始化
+    updateRankDisplay();
+
+    // 取得層級資料 (已修正比例)
+    function getRankInfo(level) {
+        level = parseInt(level) || 0;
+        // A級
+        if (level >= 31) return { rank: "A", m1: 0.15, m3: 0.11, class: "rank-A" };
+        // B級
+        if (level >= 21) return { rank: "B", m1: 0.14, m3: 0.10, class: "rank-B" };
+        // C級
+        if (level >= 11) return { rank: "C", m1: 0.12, m3: 0.09, class: "rank-C" };
+        // D級 (預設)
+        return { rank: "D", m1: 0.10, m3: 0.08, class: "rank-D" };
+    }
+
+    // 更新介面上的層級顯示
+    function updateRankDisplay() {
+        let pLevel = document.getElementById("p_level").value;
+        let info = getRankInfo(pLevel);
+        
+        let badge = document.getElementById("rankBadge");
+        badge.className = "rank-badge " + info.class;
+        badge.innerText = info.rank + "級";
+
+        document.getElementById("rankRatio").innerText = `(M1: ${Math.round(info.m1*100)}% / M3: ${Math.round(info.m3*100)}%)`;
+    }
+
+    // 顯示結果通用函式
+    function showResult(title, desc, formula, coins, extra = "") {
+        let ntd = Math.round(coins * RATE_NTD);
+        
+        document.getElementById("resTitle").innerText = "📊 " + title;
+        document.getElementById("resDesc").innerText = desc;
+        document.getElementById("resFormula").innerText = formula;
+        document.getElementById("resCoins").innerText = coins.toFixed(2); // 小數點後兩位
+        document.getElementById("resNTD").innerText = "$" + ntd.toLocaleString(); // 加逗號
+        
+        let extraBox = document.getElementById("resExtra");
+        if (extra) {
+            extraBox.style.display = "block";
+            extraBox.innerText = extra;
+        } else {
+            extraBox.style.display = "none";
+        }
+
+        document.getElementById("resultArea").style.display = "block";
+        // 滾動到結果區
+        document.getElementById("resultArea").scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // --- 計算邏輯 1: 直系 ---
+    function calcMethod1() {
+        let pLevel = document.getElementById("p_level").value;
+        let tLevel = document.getElementById("m1_t_level").value;
+        
+        if (!tLevel || tLevel <= 0) return alert("請輸入受邀請人等級");
+
+        let pInfo = getRankInfo(pLevel);
+        let coins = 73.8 * tLevel * pInfo.m1;
+
+        showResult(
+            "直系邀請獎勵 (Method 1)",
+            `您 (${pInfo.rank}級) 邀請了等級 ${tLevel} 的新人。`,
+            `73.8 * ${tLevel} * ${Math.round(pInfo.m1*100)}%`,
+            coins
+        );
+    }
+
+    // --- 計算邏輯 2: 代數 ---
+    function calcMethod2() {
+        let tnLevel = document.getElementById("m2_tn_level").value;
+        if (!tnLevel || tnLevel <= 0) return alert("請輸入新人等級");
+
+        let ratio = 0.03;
+        let coins = 73.8 * tnLevel * ratio;
+
+        showResult(
+            "代數獎勵 (Method 2)",
+            `您的組織下線邀請了等級 ${tnLevel} 的新人。`,
+            `73.8 * ${tnLevel} * 3%`,
+            coins
+        );
+    }
+
+    // --- 計算邏輯 3: 對碰 ---
+    function calcMethod3() {
+        let left = parseInt(document.getElementById("m3_left").value) || 0;
+        let right = parseInt(document.getElementById("m3_right").value) || 0;
+        let pLevel = document.getElementById("p_level").value;
+        let pInfo = getRankInfo(pLevel);
+
+        if (left === 0 && right === 0) return alert("請輸入左右區積分");
+
+        let t = Math.min(left, right);
+        let remainderL = left - t;
+        let remainderR = right - t;
+
+        let coins = 73.8 * t * pInfo.m3;
+
+        showResult(
+            "旁系對碰獎勵 (Method 3)",
+            `左區 ${left} / 右區 ${right}。取小邊 t = ${t} 計算。`,
+            `73.8 * ${t} * ${Math.round(pInfo.m3*100)}%`,
+            coins,
+            `計算後保留積分：左區剩餘 ${remainderL} / 右區剩餘 ${remainderR}`
+        );
+    }
+</script>
+
+</body>
+</html>
