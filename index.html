@@ -3,305 +3,462 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>遊戲金幣計算系統 (網頁版 v3)</title>
+    <title>遊戲金幣雙軌模擬系統 (v8 最終版)</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
     <style>
-        body { background-color: #f0f2f5; padding-top: 30px; font-family: "Microsoft JhengHei", sans-serif; }
-        .card { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; transition: transform 0.2s; }
-        .card:hover { transform: translateY(-2px); }
-        .result-box { 
-            background: linear-gradient(135deg, #e0f7fa 0%, #ffffff 100%); 
-            border-left: 5px solid #0dcaf0; 
-            padding: 20px; 
-            border-radius: 8px; 
-            margin-bottom: 25px; 
-            display: none; 
-        }
-        .highlight-coin { color: #d63384; font-weight: 800; font-size: 1.5rem; }
-        .rank-badge { font-weight: bold; padding: 5px 10px; border-radius: 6px; color: white; background-color: #6c757d;}
-        .rank-A { background-color: #dc3545; } 
-        .rank-B { background-color: #fd7e14; } 
-        .rank-C { background-color: #198754; } 
-        .rank-D { background-color: #6c757d; } 
+        body { background-color: #f4f6f9; padding-bottom: 80px; font-family: "Microsoft JhengHei", sans-serif; }
         
-        /* 成本區塊樣式 */
-        .cost-info { background-color: #f8f9fa; border-radius: 8px; padding: 10px; margin-top: 15px; border: 1px dashed #ced4da; }
-        .cost-val { font-weight: bold; color: #495057; }
+        /* 儀表板 */
+        .dashboard-card { border: none; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); background: white; margin-bottom: 20px; }
+        .stat-label { font-size: 0.9rem; color: #6c757d; font-weight: 600; }
+        .stat-value { font-size: 1.8rem; font-weight: 800; color: #212529; }
+        .stat-ntd { font-size: 1rem; color: #198754; font-weight: bold; }
+        
+        /* 左右區塊 */
+        .zone-card { border: none; border-radius: 10px; margin-bottom: 15px; height: 100%; transition: transform 0.2s; }
+        .zone-left { background-color: #f0f8ff; border-top: 5px solid #0d6efd; }
+        .zone-right { background-color: #fffaf0; border-top: 5px solid #ffc107; }
+        
+        .zone-title-L { color: #0d6efd; font-weight: 800; font-size: 1.2rem; }
+        .zone-title-R { color: #d6a208; font-weight: 800; font-size: 1.2rem; }
+
+        /* 積分顯示 */
+        .point-display { font-size: 2.2rem; font-weight: 800; text-align: center; margin: 5px 0; }
+        .point-label { text-align: center; font-size: 0.85rem; color: #777; letter-spacing: 1px; }
+
+        /* M2 專用輸入格 */
+        .gen-input-group { margin-bottom: 8px; }
+        .gen-label { width: 50px; text-align: center; font-weight: bold; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; background: #eee; border: 1px solid #ced4da; border-right: none; border-radius: 4px 0 0 4px; }
+        
+        /* 紀錄表格 */
+        .log-table { font-size: 0.9rem; }
+        .log-earn { color: #d63384; font-weight: bold; }
+
+        /* 對碰區塊 */
+        .match-zone { background-color: #212529; color: white; border-radius: 10px; padding: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+
+        /* --- S級特效樣式 --- */
+        @keyframes goldShine {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .rank-S {
+            /* 金色漸層背景 */
+            background: linear-gradient(45deg, #FFD700, #FDB931, #fffacd, #FDB931, #FFD700);
+            background-size: 300% 300%;
+            color: #5c3a00 !important; /* 深金色文字 */
+            border: 2px solid #fff;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+            animation: goldShine 3s ease infinite; /* 流光動畫 */
+            font-size: 1.1rem !important;
+            padding: 5px 12px !important;
+            text-shadow: 0px 0px 2px rgba(255,255,255,0.8);
+        }
     </style>
 </head>
 <body>
 
-<div class="container" style="max-width: 900px;">
-    <h2 class="text-center mb-4 fw-bold text-dark">🎮 遊戲金幣 (B) 投報計算系統</h2>
-
-    <div id="resultArea" class="result-box shadow-sm">
-        <h4 id="resTitle" class="mb-3 fw-bold">📊 計算結果</h4>
-        <p id="resDesc" class="mb-2">描述...</p>
-        <div class="p-3 bg-white rounded border">
-            <p class="mb-1 text-muted">計算公式：<code id="resFormula" class="text-primary">...</code></p>
-            <div class="row align-items-center mt-2">
-                <div class="col-md-6">
-                    獲得金幣 (B): <span id="resCoins" class="highlight-coin">0</span>
+<div class="container mt-4" style="max-width: 1100px;">
+    
+    <div class="dashboard-card p-4">
+        <div class="row align-items-center">
+            <div class="col-md-3 border-end">
+                <div class="stat-label">您的角色 (P)</div>
+                <div class="d-flex align-items-center mt-2">
+                    <input type="number" id="p_level" class="form-control me-2" value="1" min="1" max="31" style="width: 80px;" onchange="updateSystemState()">
+                    <span id="p_rank_badge" class="badge bg-secondary fs-6">D級</span>
                 </div>
-                <div class="col-md-6">
-                    約合台幣 (NTD): <span id="resNTD" class="fw-bold text-success fs-5">$0</span>
-                </div>
+                <div class="small text-muted mt-2">總成本: <span id="cost_display">$3,813</span></div>
             </div>
-            
-            <hr>
-            <div class="mt-3">
-                <div class="d-flex justify-content-between align-items-end mb-1">
-                    <label class="fw-bold text-secondary">💰 本次獎金回收比例 (ROI)</label>
-                    <span id="roiText" class="fw-bold text-primary">0%</span>
-                </div>
-                <div class="progress" style="height: 25px;">
-                    <div id="roiBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
-                </div>
-                <small class="text-muted mt-1 d-block">相對於您的投入成本 <span id="refCostDisplay">0</span> 元</small>
+            <div class="col-md-5 border-end text-center">
+                <div class="stat-label">目前累積總收益 (Total Earned)</div>
+                <div class="stat-value text-primary" id="total_coin">0.00 B</div>
+                <div class="stat-ntd" id="total_ntd">NT$ 0</div>
             </div>
-
-            <div id="resExtra" class="alert alert-warning mt-3 mb-0 py-2 small" style="display:none;"></div>
+            <div class="col-md-4 px-4">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="stat-label">回本進度 (ROI)</span>
+                    <span class="fw-bold text-primary" id="roi_text">0%</span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div id="roi_bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+                <button class="btn btn-outline-danger btn-sm w-100 mt-3" onclick="resetSystem()">🔄 重置系統</button>
+            </div>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card h-100">
-                <div class="card-header bg-dark text-white fw-bold">
-                    1. 您的角色與成本 (P)
-                </div>
+    <div class="row g-4">
+        
+        <div class="col-md-6">
+            <div class="card zone-card zone-left shadow-sm">
                 <div class="card-body">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">目前等級 (手環數)</label>
-                        <input type="number" id="p_level" class="form-control form-control-lg" value="1" min="1" max="31" oninput="updateRankDisplay()">
-                        <div class="mt-3">
-                            目前層級：<span id="rankBadge" class="rank-badge rank-D">D級</span>
-                            <span id="rankRatio" class="text-muted small ms-1"></span>
-                        </div>
-                        
-                        <div class="cost-info">
-                            <label class="small text-muted">總投入成本 (NTD)</label>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="cost-val" id="totalCost">$3,813</span>
-                                <small class="text-secondary" style="font-size: 0.75rem;">(123金 × 31匯 × 等級)</small>
-                            </div>
+                    <div class="text-center mb-2 zone-title-L">⬅️ 左區 (Left)</div>
+                    <div class="point-label">累積積分</div>
+                    <div class="point-display text-primary" id="left_points">0</div>
+                    <hr class="text-primary">
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-primary">1. 新增直推 (M1)</label>
+                        <div class="input-group">
+                            <input type="number" id="m1_input_L" class="form-control border-primary" placeholder="輸入等級">
+                            <button class="btn btn-primary" onclick="addM1('L')">➕ 加入左區</button>
                         </div>
                     </div>
-                    <hr>
-                    <div class="small text-muted">
-                        <strong>獎金比例對照表：</strong>
-                        <ul class="ps-3 mb-0 mt-2">
-                            <li><span class="text-danger fw-bold">A級 (31+)</span>: M1 15%, M3 11%</li>
-                            <li><span class="text-warning fw-bold" style="color:#fd7e14 !important">B級 (21-30)</span>: M1 14%, M3 10%</li>
-                            <li><span class="text-success fw-bold">C級 (11-20)</span>: M1 12%, M3 9%</li>
-                            <li><span class="text-secondary fw-bold">D級 (1-10)</span>: M1 10%, M3 8%</li>
-                        </ul>
+
+                    <div class="mb-4 bg-white p-3 rounded border border-primary-subtle">
+                        <label class="form-label fw-bold text-success">2. 代數批量 (M2)</label>
+                        <div class="row g-2">
+                            <div class="col-6"><div class="input-group gen-input-group"><span class="gen-label">2代</span><input type="number" id="m2_g2_L" class="form-control form-control-sm" placeholder="等級"></div></div>
+                            <div class="col-6"><div class="input-group gen-input-group"><span class="gen-label">3代</span><input type="number" id="m2_g3_L" class="form-control form-control-sm" placeholder="等級"></div></div>
+                            <div class="col-6"><div class="input-group gen-input-group"><span class="gen-label">4代</span><input type="number" id="m2_g4_L" class="form-control form-control-sm" placeholder="等級"></div></div>
+                            <div class="col-6"><div class="input-group gen-input-group"><span class="gen-label">5代</span><input type="number" id="m2_g5_L" class="form-control form-control-sm" placeholder="等級"></div></div>
+                        </div>
+                        <button class="btn btn-success btn-sm w-100 mt-2" onclick="addM2Batch('L')">➕ 批量加入左區 (賺3%)</button>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold text-secondary">3. 來自安置 (純積分)</label>
+                        <div class="input-group">
+                            <input type="number" id="place_input_L" class="form-control" placeholder="輸入等級">
+                            <button class="btn btn-outline-primary" onclick="addPlacement('L')">僅加積分</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-8">
-            
-            <div class="card border-primary">
-                <div class="card-header bg-primary text-white fw-bold d-flex justify-content-between">
-                    <span>模式 A：直系邀請 (第一代)</span>
-                    <small>公式：73.8 * T * P%</small>
-                </div>
+        <div class="col-md-6">
+            <div class="card zone-card zone-right shadow-sm">
                 <div class="card-body">
-                    <div class="input-group">
-                        <span class="input-group-text">受邀人 (T) 等級</span>
-                        <input type="number" id="m1_t_level" class="form-control" placeholder="1-31" min="1" max="31">
-                        <button class="btn btn-primary px-4" onclick="calcMethod1()">計算</button>
-                    </div>
-                </div>
-            </div>
+                    <div class="text-center mb-2 zone-title-R">➡️ 右區 (Right)</div>
+                    <div class="point-label">累積積分</div>
+                    <div class="point-display text-warning-emphasis" id="right_points">0</div>
+                    <hr class="text-warning">
 
-            <div class="card border-success">
-                <div class="card-header bg-success text-white fw-bold d-flex justify-content-between">
-                    <span>模式 B：代數獎勵 (第二~五代)</span>
-                    <small>公式：73.8 * Tn * 3%</small>
-                </div>
-                <div class="card-body">
-                    <p class="small text-muted mb-2">適用於您的下線 (T) 再去邀請新人 (T2~T5)。</p>
-                    <div class="input-group">
-                        <span class="input-group-text">新人 (Tn) 等級</span>
-                        <input type="number" id="m2_tn_level" class="form-control" placeholder="1-31" min="1" max="31">
-                        <button class="btn btn-success px-4" onclick="calcMethod2()">計算</button>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-warning-emphasis">1. 新增直推 (M1)</label>
+                        <div class="input-group">
+                            <input type="number" id="m1_input_R" class="form-control border-warning" placeholder="輸入等級">
+                            <button class="btn btn-warning" onclick="addM1('R')">➕ 加入右區</button>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <div class="card border-warning">
-                <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between">
-                    <span>模式 C：旁系對碰</span>
-                    <small>取小邊計算 (t)</small>
-                </div>
-                <div class="card-body">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-5">
-                            <label class="form-label small">左區總分</label>
-                            <input type="number" id="m3_left" class="form-control" placeholder="如: 150">
+                    <div class="mb-4 bg-white p-3 rounded border border-warning-subtle">
+                        <label class="form-label fw-bold text-success">2. 代數批量 (M2)</label>
+                        <div class="row g-2">
+                            <div class="col-6"><div class="input-group gen-input-group"><span class="gen-label">2代</span><input type="number" id="m2_g2_R" class="form-control form-control-sm" placeholder="等級"></div></div>
+                            <div class="col-6"><div class="input-group gen-input-group"><span class="gen-label">3代</span><input type="number" id="m2_g3_R" class="form-control form-control-sm" placeholder="等級"></div></div>
+                            <div class="col-6"><div class="input-group gen-input-group"><span class="gen-label">4代</span><input type="number" id="m2_g4_R" class="form-control form-control-sm" placeholder="等級"></div></div>
+                            <div class="col-6"><div class="input-group gen-input-group"><span class="gen-label">5代</span><input type="number" id="m2_g5_R" class="form-control form-control-sm" placeholder="等級"></div></div>
                         </div>
-                        <div class="col-5">
-                            <label class="form-label small">右區總分</label>
-                            <input type="number" id="m3_right" class="form-control" placeholder="如: 80">
-                        </div>
-                        <div class="col-2">
-                            <button class="btn btn-warning w-100" onclick="calcMethod3()">計算</button>
+                        <button class="btn btn-success btn-sm w-100 mt-2" onclick="addM2Batch('R')">➕ 批量加入右區 (賺3%)</button>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold text-secondary">3. 來自安置 (純積分)</label>
+                        <div class="input-group">
+                            <input type="number" id="place_input_R" class="form-control" placeholder="輸入等級">
+                            <button class="btn btn-outline-warning" onclick="addPlacement('R')">僅加積分</button>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
 
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="match-zone text-center">
+                <h3 class="fw-bold">⚡ M3 雙軌對碰結算 ⚡</h3>
+                <p class="text-white-50">取左右兩區較小值 (t) 進行計算，兩邊扣除 t 後，大邊餘額保留。</p>
+                <button class="btn btn-danger btn-lg px-5 shadow fw-bold" style="font-size: 1.5rem;" onclick="executeMatch()">💥 立即執行對碰</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-4 shadow-sm">
+        <div class="card-header bg-white fw-bold">📋 收益與操作紀錄</div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                <table class="table table-striped table-hover mb-0 log-table">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th scope="col" style="width: 8%">#</th>
+                            <th scope="col" style="width: 12%">類型</th>
+                            <th scope="col" style="width: 45%">描述</th>
+                            <th scope="col" style="width: 20%">積分變動</th>
+                            <th scope="col" style="width: 15%">獲得獎金 (B)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log_body">
+                        </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    const RATE_NTD = 31;      // 匯率
-    const PRICE_PER_UNIT = 123; // 每條手環金幣價
+    // --- 系統參數與狀態 ---
+    const RATE_NTD = 31;
+    const PRICE_PER_UNIT = 123;
+    const S_RANK_THRESHOLD = 10000; // S級門檻
+    
+    let state = {
+        totalCoins: 0,
+        leftPoints: 0,
+        rightPoints: 0,
+        logCount: 0,
+        hasCelebratedS: false // 是否已經慶祝過S級
+    };
 
     // 初始化
-    updateRankDisplay();
+    updateSystemState();
 
-    // 取得層級資料
+    // --- 輔助函式 ---
+
+    // 取得層級與參數
     function getRankInfo(level) {
         level = parseInt(level) || 0;
-        if (level >= 31) return { rank: "A", m1: 0.15, m3: 0.11, class: "rank-A" };
-        if (level >= 21) return { rank: "B", m1: 0.14, m3: 0.10, class: "rank-B" };
-        if (level >= 11) return { rank: "C", m1: 0.12, m3: 0.09, class: "rank-C" };
-        return { rank: "D", m1: 0.10, m3: 0.08, class: "rank-D" };
+        if (level >= 31) return { rank: "A", m1: 0.15, m3: 0.11, class: "bg-danger" };
+        if (level >= 21) return { rank: "B", m1: 0.14, m3: 0.10, class: "bg-warning text-dark" };
+        if (level >= 11) return { rank: "C", m1: 0.12, m3: 0.09, class: "bg-success" };
+        return { rank: "D", m1: 0.10, m3: 0.08, class: "bg-secondary" };
     }
 
-    // 更新介面上的層級顯示 & 成本計算
-    function updateRankDisplay() {
-        let pLevel = document.getElementById("p_level").value || 1;
+    // 觸發灑花慶祝
+    function triggerConfetti() {
+        // 發射三次不同角度
+        var duration = 3 * 1000;
+        var end = Date.now() + duration;
+
+        (function frame() {
+            confetti({
+                particleCount: 5,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0 },
+                colors: ['#FFD700', '#FF0000', '#FFFFFF']
+            });
+            confetti({
+                particleCount: 5,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1 },
+                colors: ['#FFD700', '#FF0000', '#FFFFFF']
+            });
+
+            if (Date.now() < end) {
+                requestAnimationFrame(frame);
+            }
+        }());
+    }
+
+    // 更新畫面顯示 (含 S 級判斷)
+    function updateSystemState() {
+        let pLevel = parseInt(document.getElementById("p_level").value) || 1;
         let info = getRankInfo(pLevel);
+        let badge = document.getElementById("p_rank_badge");
         
-        // 更新 Badge
-        let badge = document.getElementById("rankBadge");
-        badge.className = "rank-badge " + info.class;
-        badge.innerText = info.rank + "級";
+        // -------------------------
+        // S級 核心判斷邏輯
+        // -------------------------
+        if (state.totalCoins >= S_RANK_THRESHOLD) {
+            badge.className = "badge rank-S"; // 套用金色樣式
+            badge.innerHTML = "S級 ★";      // 加上星星
 
-        document.getElementById("rankRatio").innerText = `(M1: ${Math.round(info.m1*100)}% / M3: ${Math.round(info.m3*100)}%)`;
+            // 如果尚未慶祝過，觸發灑花
+            if (!state.hasCelebratedS) {
+                triggerConfetti();
+                state.hasCelebratedS = true; // 標記已慶祝
+                // 額外增加一個紀錄
+                addLog("🏆 晉升 S級", "累積獎金突破 10,000 B！獲得榮耀徽章！", "-", 0);
+            }
+        } else {
+            // 尚未達到，顯示正常等級
+            badge.className = "badge fs-6 " + info.class;
+            badge.innerText = info.rank + "級";
+            state.hasCelebratedS = false; // 如果重置或金額下降(本邏輯只增不減)，重置慶祝旗標
+        }
 
-        // 計算並顯示成本
-        let totalCostNTD = pLevel * PRICE_PER_UNIT * RATE_NTD;
-        document.getElementById("totalCost").innerText = "$" + totalCostNTD.toLocaleString();
-    }
+        // 2. 成本
+        let cost = pLevel * PRICE_PER_UNIT * RATE_NTD;
+        document.getElementById("cost_display").innerText = "$" + cost.toLocaleString();
 
-    // 取得當前總成本 (供內部計算用)
-    function getCurrentCost() {
-        let pLevel = document.getElementById("p_level").value || 1;
-        return pLevel * PRICE_PER_UNIT * RATE_NTD;
-    }
+        // 3. 積分
+        document.getElementById("left_points").innerText = state.leftPoints;
+        document.getElementById("right_points").innerText = state.rightPoints;
 
-    // 顯示結果通用函式
-    function showResult(title, desc, formula, coins, extra = "") {
-        let ntd = Math.round(coins * RATE_NTD);
-        let cost = getCurrentCost();
+        // 4. 收益與 ROI
+        let totalNTD = Math.round(state.totalCoins * RATE_NTD);
+        document.getElementById("total_coin").innerText = state.totalCoins.toFixed(2) + " B";
+        document.getElementById("total_ntd").innerText = "NT$ " + totalNTD.toLocaleString();
+
+        let roi = (cost > 0) ? (totalNTD / cost) * 100 : 0;
+        let roiBar = document.getElementById("roi_bar");
+        let roiText = document.getElementById("roi_text");
         
-        // 渲染基本結果
-        document.getElementById("resTitle").innerText = "📊 " + title;
-        document.getElementById("resDesc").innerText = desc;
-        document.getElementById("resFormula").innerText = formula;
-        document.getElementById("resCoins").innerText = coins.toFixed(2);
-        document.getElementById("resNTD").innerText = "$" + ntd.toLocaleString();
+        roiText.innerText = roi.toFixed(1) + "%";
+        roiBar.style.width = Math.min(roi, 100) + "%"; 
         
-        // 渲染 ROI 進度條
-        let roiPercent = (ntd / cost) * 100;
-        let roiBar = document.getElementById("roiBar");
-        let roiText = document.getElementById("roiText");
-        let refCostDisplay = document.getElementById("refCostDisplay");
-
-        refCostDisplay.innerText = "$" + cost.toLocaleString();
-        roiText.innerText = roiPercent.toFixed(1) + "%";
-        
-        // 進度條長度限制在 100% 以免破版
-        let barWidth = roiPercent > 100 ? 100 : roiPercent;
-        roiBar.style.width = barWidth + "%";
-
-        // 顏色邏輯：超過 100% 變綠色，否則藍色
-        if (roiPercent >= 100) {
+        if (roi >= 100) {
             roiBar.className = "progress-bar progress-bar-striped progress-bar-animated bg-success";
             roiText.className = "fw-bold text-success";
-            roiText.innerText += " (已獲利!)";
         } else {
             roiBar.className = "progress-bar progress-bar-striped progress-bar-animated bg-primary";
             roiText.className = "fw-bold text-primary";
         }
+    }
 
-        // 額外資訊
-        let extraBox = document.getElementById("resExtra");
-        if (extra) {
-            extraBox.style.display = "block";
-            extraBox.innerText = extra;
+    // 寫入紀錄
+    function addLog(type, desc, pointChange, earnB) {
+        state.logCount++;
+        let tbody = document.getElementById("log_body");
+        let row = document.createElement("tr");
+        
+        let earnClass = earnB > 0 ? "log-earn" : "text-muted";
+        let earnText = earnB > 0 ? `+${earnB.toFixed(2)}` : "-";
+
+        row.innerHTML = `
+            <th scope="row">${state.logCount}</th>
+            <td><span class="badge bg-light text-dark border">${type}</span></td>
+            <td>${desc}</td>
+            <td>${pointChange}</td>
+            <td class="${earnClass}">${earnText}</td>
+        `;
+        tbody.insertBefore(row, tbody.firstChild);
+    }
+
+    // --- 核心邏輯 (支援左右參數 side: 'L' or 'R') ---
+
+    // 1. M1 直推
+    function addM1(side) {
+        let inputId = `m1_input_${side}`;
+        let input = document.getElementById(inputId);
+        let tLevel = parseInt(input.value);
+        
+        if (!tLevel || tLevel <= 0) return alert("請輸入正確等級");
+
+        let pLevel = document.getElementById("p_level").value;
+        let info = getRankInfo(pLevel);
+        let bonus = 73.8 * tLevel * info.m1;
+        
+        // 更新狀態
+        state.totalCoins += bonus;
+        if (side === 'L') {
+            state.leftPoints += tLevel;
+            addLog("M1 直推 (左)", `左區直推等級 ${tLevel} (比例 ${Math.round(info.m1*100)}%)`, `<span class="text-primary">+${tLevel} 左</span>`, bonus);
         } else {
-            extraBox.style.display = "none";
+            state.rightPoints += tLevel;
+            addLog("M1 直推 (右)", `右區直推等級 ${tLevel} (比例 ${Math.round(info.m1*100)}%)`, `<span class="text-warning-emphasis">+${tLevel} 右</span>`, bonus);
         }
 
-        document.getElementById("resultArea").style.display = "block";
-        document.getElementById("resultArea").scrollIntoView({ behavior: 'smooth' });
+        input.value = "";
+        updateSystemState();
     }
 
-    // --- 計算邏輯 1: 直系 ---
-    function calcMethod1() {
-        let pLevel = document.getElementById("p_level").value;
-        let tLevel = document.getElementById("m1_t_level").value;
+    // 2. M2 代數批量
+    function addM2Batch(side) {
+        let sideText = (side === 'L') ? "左" : "右";
+        let pointClass = (side === 'L') ? "text-primary" : "text-warning-emphasis";
         
-        if (!tLevel || tLevel <= 0) return alert("請輸入受邀請人等級");
+        // 欄位定義
+        const fields = [
+            { id: `m2_g2_${side}`, gen: 2 },
+            { id: `m2_g3_${side}`, gen: 3 },
+            { id: `m2_g4_${side}`, gen: 4 },
+            { id: `m2_g5_${side}`, gen: 5 }
+        ];
 
-        let pInfo = getRankInfo(pLevel);
-        let coins = 73.8 * tLevel * pInfo.m1;
+        let hasData = false;
 
-        showResult(
-            "直系邀請獎勵 (Method 1)",
-            `您 (${pInfo.rank}級) 邀請了等級 ${tLevel} 的新人。`,
-            `73.8 * ${tLevel} * ${Math.round(pInfo.m1*100)}%`,
-            coins
-        );
+        fields.forEach(field => {
+            let el = document.getElementById(field.id);
+            let val = parseInt(el.value);
+
+            if (val && val > 0) {
+                hasData = true;
+                let bonus = 73.8 * val * 0.03; // 固定 3%
+                
+                state.totalCoins += bonus;
+                if (side === 'L') state.leftPoints += val;
+                else state.rightPoints += val;
+
+                addLog(`M2 代數 (${sideText})`, `${sideText}區新增等級 ${val} (${field.gen}代)`, `<span class="${pointClass}">+${val} ${sideText}</span>`, bonus);
+                
+                el.value = "";
+            }
+        });
+
+        if (hasData) {
+            updateSystemState();
+        } else {
+            alert(`請在${sideText}區 M2 欄位至少填寫一個數值`);
+        }
     }
 
-    // --- 計算邏輯 2: 代數 ---
-    function calcMethod2() {
-        let tnLevel = document.getElementById("m2_tn_level").value;
-        if (!tnLevel || tnLevel <= 0) return alert("請輸入新人等級");
+    // 3. 安置 (Placement)
+    function addPlacement(side) {
+        let inputId = `place_input_${side}`;
+        let input = document.getElementById(inputId);
+        let level = parseInt(input.value);
 
-        let ratio = 0.03;
-        let coins = 73.8 * tnLevel * ratio;
+        if (!level || level <= 0) return alert("請輸入正確等級");
 
-        showResult(
-            "代數獎勵 (Method 2)",
-            `您的組織下線邀請了等級 ${tnLevel} 的新人。`,
-            `73.8 * ${tnLevel} * 3%`,
-            coins
-        );
+        if (side === 'L') {
+            state.leftPoints += level;
+            addLog("安置 (左)", `左區接收安置/溢出 等級 ${level}`, `<span class="text-primary">+${level} 左</span>`, 0);
+        } else {
+            state.rightPoints += level;
+            addLog("安置 (右)", `右區接收安置/溢出 等級 ${level}`, `<span class="text-warning-emphasis">+${level} 右</span>`, 0);
+        }
+
+        input.value = "";
+        updateSystemState();
     }
 
-    // --- 計算邏輯 3: 對碰 ---
-    function calcMethod3() {
-        let left = parseInt(document.getElementById("m3_left").value) || 0;
-        let right = parseInt(document.getElementById("m3_right").value) || 0;
+    // 4. M3 對碰 (Global)
+    function executeMatch() {
+        if (state.leftPoints === 0 || state.rightPoints === 0) {
+            return alert("左右兩區都需要有積分才能進行對碰！");
+        }
+
         let pLevel = document.getElementById("p_level").value;
-        let pInfo = getRankInfo(pLevel);
+        let info = getRankInfo(pLevel);
 
-        if (left === 0 && right === 0) return alert("請輸入左右區積分");
+        let t = Math.min(state.leftPoints, state.rightPoints);
+        let bonus = 73.8 * t * info.m3;
 
-        let t = Math.min(left, right);
-        let remainderL = left - t;
-        let remainderR = right - t;
+        let oldLeft = state.leftPoints;
+        let oldRight = state.rightPoints;
+        
+        state.leftPoints -= t;
+        state.rightPoints -= t;
+        state.totalCoins += bonus;
 
-        let coins = 73.8 * t * pInfo.m3;
-
-        showResult(
-            "旁系對碰獎勵 (Method 3)",
-            `左區 ${left} / 右區 ${right}。取小邊 t = ${t} 計算。`,
-            `73.8 * ${t} * ${Math.round(pInfo.m3*100)}%`,
-            coins,
-            `計算後保留積分：左區剩餘 ${remainderL} / 右區剩餘 ${remainderR}`
+        addLog("M3 對碰", 
+            `執行對碰 (t=${t})。比例 ${Math.round(info.m3*100)}%。<br><small>左: ${oldLeft}→${state.leftPoints} / 右: ${oldRight}→${state.rightPoints}</small>`, 
+            `<span class="text-danger fw-bold">-${t} 雙邊</span>`, 
+            bonus
         );
+
+        updateSystemState();
     }
+
+    // 重置
+    function resetSystem() {
+        if(!confirm("確定要清空所有紀錄與收益嗎？")) return;
+        state = { totalCoins: 0, leftPoints: 0, rightPoints: 0, logCount: 0, hasCelebratedS: false };
+        document.getElementById("log_body").innerHTML = "";
+        document.getElementById("p_level").value = 1;
+        updateSystemState();
+    }
+
 </script>
 
 </body>
