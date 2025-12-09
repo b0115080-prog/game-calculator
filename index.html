@@ -17,6 +17,21 @@
             font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; 
             color: #ffffff; /* 預設文字全白 */
         }
+
+        /* --- Logo 區塊樣式 (新增) --- */
+        .header-section {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-top: 1rem;
+        }
+        .main-logo {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 0 15px rgba(13, 110, 253, 0.6)); /* 讓 Logo 發光 */
+            border-radius: 50%; /* 如果圖片是方形的，這會讓它變圓，若Logo本身是透明底可移除 */
+            border: 2px solid rgba(255, 215, 0, 0.3);
+        }
         
         /* --- 卡片樣式：降低透明度，提高對比 --- */
         .dashboard-card, .card { 
@@ -163,6 +178,26 @@
 
 <div class="container mt-4" style="max-width: 1100px;">
     
+    <!-- 新增：Logo 與標題區塊 -->
+    <div class="header-section">
+        <!-- 
+             使用說明：
+             1. 請將剛剛生成的圖片下載，並重新命名為 logo.png
+             2. 將圖片放在與此 HTML 檔案同一個資料夾
+             3. 瀏覽器會自動讀取並顯示
+        -->
+        <img src="logo.png" alt="Quantum Spire Logo" class="main-logo" onerror="this.style.display='none'; document.getElementById('backup-icon').style.display='inline-block';">
+        
+        <!-- 備用圖示 (當找不到 logo.png 時顯示) -->
+        <div id="backup-icon" style="display:none; margin-bottom: 15px;">
+            <span style="font-size: 4rem; color: #0d6efd;">⚛️</span>
+        </div>
+
+        <h1 class="fw-bold text-white" style="letter-spacing: 2px; text-shadow: 0 0 15px rgba(13, 110, 253, 0.6);">
+            量子階塔 <span style="color: #FFD700; font-weight: 300;">Quantum Spire</span>
+        </h1>
+    </div>
+
     <!-- 儀表板 -->
     <div class="dashboard-card p-4">
         <div class="row align-items-center">
